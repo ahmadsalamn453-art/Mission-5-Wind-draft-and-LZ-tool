@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Mission 05: Tactical Parachute Wind Drift & Landing Zone Tool</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OrbitControls -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        body {
+            background-color: #030712;
+            color: #f3f4f6;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            overflow-x: hidden;
+        }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        input[type="range"] {
+            accent-color: #38bdf8;
+        }
+        /* Custom scrollbar for control panel */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(56, 189, 248, 0.3);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(56, 189, 248, 0.6);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between p-3 sm:p-4 md:p-6">
+
+    <!-- Header Section -->
+    <header class="max-w-7xl mx-auto w-full mb-4 md:mb-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+                <h1 class="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight text-white flex items-center gap-3">
+                    <span class="inline-block w-3 h-3 rounded-full bg-sky-400 animate-ping"></span>
+                    <span>Parachute Wind Drift & LZ Radius Tool</span>
+                </h1>
+                <p class="text-xs sm:text-sm text-slate-400 mt-0.5">
+                    SEDS-TASK-RCK-SRILANKA-020 • Candidate: Ahmad Salman (Pod 1C)
+                </p>
+            </div>
+            <!-- Compliance Badge -->
+            <div id="compliance-badge" class="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-bold tracking-wide uppercase border bg-emerald-950/80 text-emerald-400 border-emerald-500/50 flex items-center gap-2 self-start sm:self-auto">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span id="badge-text">PASSED (Within 400m Launch Pad Radius)</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Grid -->
+    <main class="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 flex-1">
+        
+        <!-- Left Side: Controls & KPI Dashboard (5 cols) -->
+        <div class="lg:col-span-5 flex flex-col gap-4">
+            
+            <!-- KPI Metric Cards Grid -->
+            <div class="grid grid-cols-2 gap-2.5 sm:gap-3">
+                <div class="glass-panel p-3.5 sm:p-4 rounded-xl border-l-4 border-l-sky-500">
+                    <p class="text-[10px] sm:text-xs uppercase tracking-wider text-slate-400 font-semibold">Fall Duration</p>
+                    <p id="kpi-duration" class="text-xl sm:text-2xl font-bold text-sky-400 mt-0.5">01m 07s</p>
+                </div>
+                <div class="glass-panel p-3.5 sm:p-4 rounded-xl border-l-4 border-l-orange-500">
+                    <p class="text-[10px] sm:text-xs uppercase tracking-wider text-slate-400 font-semibold">Wind Drift</p>
+                    <p id="kpi-drift" class="text-xl sm:text-2xl font-bold text-white mt-0.5">337 m</p>
+                </div>
+                <div class="glass-panel p-3.5 sm:p-4 rounded-xl border-l-4 border-l-amber-500">
+                    <p class="text-[10px] sm:text-xs uppercase tracking-wider text-slate-400 font-semibold">Landing Distance</p>
+                    <p id="kpi-distance" class="text-xl sm:text-2xl font-bold text-amber-400 mt-0.5">337 m</p>
+                </div>
+                <div class="glass-panel p-3.5 sm:p-4 rounded-xl border-l-4 border-l-emerald-500">
+                    <p class="text-[10px] sm:text-xs uppercase tracking-wider text-slate-400 font-semibold">Landing Bearing</p>
+                    <p id="kpi-bearing" class="text-xl sm:text-2xl font-bold text-emerald-400 mt-0.5">135° SE</p>
+                </div>
+            </div>
+
+            <!-- Parameter Controls Panel -->
+            <div class="glass-panel p-4 sm:p-5 rounded-xl flex-1 flex flex-col justify-between gap-3.5 overflow-y-auto max-h-[500px] lg:max-h-none">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-slate-300">Flight Parameters (Mission 05)</h2>
+                    <span class="text-[10px] text-sky-400 bg-sky-950/60 px-2 py-0.5 rounded border border-sky-800/40">PAD RADIUS: 400m</span>
+                </div>
+
+                <!-- Drop Altitude -->
+                <div>
+                    <div class="flex justify-between text-xs sm:text-sm font-medium mb-1">
+                        <span class="text-slate-300">Deployment Altitude</span>
+                        <span id="val-altitude" class="text-sky-400 font-bold">350m</span>
+                    </div>
+                    <input type="range" id="input-altitude" min="100" max="415" step="5" value="350" class="w-full h-2 bg-slate-800 rounded-lg cursor-pointer">
+                </div>
+
+                <!-- Ground Elevation -->
+                <div>
+                    <div class="flex justify-between text-xs sm:text-sm font-medium mb-1">
+                        <span class="text-slate-300">Ground Elevation (Pad Center)</span>
+                        <span id="val-elevation" class="text-sky-400 font-bold">0m</span>
+                    </div>
+                    <input type="range" id="input-elevation" min="0" max="100" step="10" value="0" class="w-full h-2 bg-slate-800 rounded-lg cursor-pointer">
+                </div>
+
+                <!-- Vertical Descent Rate -->
+                <div>
+                    <div class="flex justify-between text-xs sm:text-sm font-medium mb-1">
+                        <span class="text-slate-300">Descent Velocity (Baseline)</span>
+                        <span id="val-descent" class="text-sky-400 font-bold">5.2 m/s</span>
+                    </div>
+                    <input type="range" id="input-descent" min="4.0" max="8.0" step="0.1" value="5.2" class="w-full h-2 bg-slate-800 rounded-lg cursor-pointer">
+                </div>
+
+                <!-- Wind Speed -->
+                <div>
+                    <div class="flex justify-between text-xs sm:text-sm font-medium mb-1">
+                        <span class="text-slate-300">Wind Speed (Gust Test)</span>
+                        <span id="val-windspeed" class="text-sky-400 font-bold">5.0 m/s</span>
+                    </div>
+                    <input type="range" id="input-windspeed" min="0.0" max="10.0" step="0.5" value="5.0" class="w-full h-2 bg-slate-800 rounded-lg cursor-pointer">
+                </div>
+
+                <!-- Wind Direction -->
+                <div>
+                    <div class="flex justify-between text-xs sm:text-sm font-medium mb-1">
+                        <span class="text-slate-300">Wind Direction (Bearing)</span>
+                        <span id="val-winddir" class="text-sky-400 font-bold">135° SE</span>
+                    </div>
+                    <input type="range" id="input-winddir" min="0" max="360" step="5" value="135" class="w-full h-2 bg-slate-800 rounded-lg cursor-pointer">
+                </div>
+
+                <!-- Quick Scenario Compliance Buttons -->
+                <div class="pt-2 border-t border-slate-800 flex gap-2">
+                    <button id="btn-scenario-5" class="flex-1 bg-sky-900/40 hover:bg-sky-900/70 border border-sky-500/40 text-sky-300 text-xs py-2 px-2 rounded-lg font-semibold transition active:scale-95 text-center">
+                        Test 5 m/s Wind (350m Alt)
+                    </button>
+                    <button id="btn-scenario-10" class="flex-1 bg-emerald-900/40 hover:bg-emerald-900/70 border border-emerald-500/40 text-emerald-300 text-xs py-2 px-2 rounded-lg font-semibold transition active:scale-95 text-center">
+                        Test 10 m/s Wind (150m Alt)
+                    </button>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Right Side: Detailed Clean 3D Viewport (7 cols) -->
+        <div class="lg:col-span-7 glass-panel rounded-xl relative overflow-hidden flex flex-col min-h-[480px] lg:min-h-[560px]">
+            <!-- Clean Viewport Canvas -->
+            <div id="three-container" class="w-full h-full flex-1 cursor-grab active:cursor-grabbing"></div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="max-w-7xl mx-auto w-full text-center text-xs text-slate-500 mt-4 md:mt-6">
+        SEDS Pakistan • Pod 1C: Dual-Deploy Avionics, Telemetry & Safety • Candidate: Ahmad Salman
+    </footer>
+
+    <!-- Three.js Visual Engine Logic -->
+    <script>
+        // DOM Controls & Readouts
+        const inputs = {
+            altitude: document.getElementById('input-altitude'),
+            elevation: document.getElementById('input-elevation'),
+            descent: document.getElementById('input-descent'),
+            windspeed: document.getElementById('input-windspeed'),
+            winddir: document.getElementById('input-winddir')
+        };
+
+        const readouts = {
+            altitude: document.getElementById('val-altitude'),
+            elevation: document.getElementById('val-elevation'),
+            descent: document.getElementById('val-descent'),
+            windspeed: document.getElementById('val-windspeed'),
+            winddir: document.getElementById('val-winddir'),
+            duration: document.getElementById('kpi-duration'),
+            drift: document.getElementById('kpi-drift'),
+            distance: document.getElementById('kpi-distance'),
+            bearing: document.getElementById('kpi-bearing'),
+            badge: document.getElementById('compliance-badge'),
+            badgeText: document.getElementById('badge-text')
+        };
+
+        // Quick Scenario Buttons (Strictly < 400m Launch Pad Radius)
+        document.getElementById('btn-scenario-5').addEventListener('click', () => {
+            inputs.altitude.value = 350;
+            inputs.windspeed.value = 5.0;
+            updatePhysics();
+        });
+        document.getElementById('btn-scenario-10').addEventListener('click', () => {
+            inputs.altitude.value = 150;
+            inputs.windspeed.value = 10.0;
+            updatePhysics();
+        });
+
+        // Initialize Three.js Scene, Camera, Renderer, Controls
+        const container = document.getElementById('three-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x030712);
+        scene.fog = new THREE.FogExp2(0x030712, 0.0006);
+
+        const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 1, 10000);
+        camera.position.set(380, 320, 520);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxPolarAngle = Math.PI / 2 - 0.02;
+
+        // Lighting System
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const sunLight = new THREE.DirectionalLight(0x38bdf8, 1.2);
+        sunLight.position.set(400, 800, 300);
+        sunLight.castShadow = true;
+        scene.add(sunLight);
+
+        const fillLight = new THREE.DirectionalLight(0xf97316, 0.5);
+        fillLight.position.set(-300, 200, -300);
+        scene.add(fillLight);
+
+        // Ground Grid (Origin anchored at 0,0,0)
+        const grid = new THREE.GridHelper(2000, 50, 0x334155, 0x1e293b);
+        grid.position.y = 0;
+        scene.add(grid);
+
+        // Scene Objects
+        let trajectoryMesh, parachutistAssembly, safeBoundaryRing, dangerBoundaryRing, dropLineMesh, targetMarker, launchPadGroup;
+
+        // Helper to Create Cardinal Compass Markers on Ground Plane
+        function createCompassMarker(text, position) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 128;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#38bdf8';
+            ctx.font = 'Bold 70px -apple-system, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, 64, 64);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            const spriteMat = new THREE.SpriteMaterial({ map: texture, transparent: true });
+            const sprite = new THREE.Sprite(spriteMat);
+            sprite.scale.set(40, 40, 1);
+            sprite.position.copy(position);
+            scene.add(sprite);
+        }
+
+        // --- PROCEDURAL 3D HUMAN SKYDIVER + PARACHUTE ASSEMBLY BUILDER ---
+        // STRICT REQUIREMENT: ONLY a human skydiver under the parachute, NO payload/boxes/rockets
+        function createDetailedParachutistModel() {
+            const assembly = new THREE.Group();
+
+            // 1. DUAL-LAYER CURVED RAM-AIR PARACHUTE CANOPY
+            const canopyGroup = new THREE.Group();
+            
+            // Outer Aerofoil Canopy Shell
+            const canopyGeo = new THREE.SphereGeometry(30, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2.2);
+            
+            // Texture Canvas for High-Visibility Tactical Canopy Stripes
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#0284c7'; // Sky Blue Primary
+            ctx.fillRect(0, 0, 512, 256);
+            ctx.fillStyle = '#f97316'; // Tactical Orange Panels
+            for (let i = 0; i < 512; i += 64) {
+                ctx.fillRect(i, 0, 32, 256);
+            }
+            ctx.fillStyle = '#ffffff'; // White Ribs
+            for (let i = 16; i < 512; i += 64) {
+                ctx.fillRect(i, 0, 4, 256);
+            }
+            ctx.fillStyle = '#0f172a'; // Dark Trailing Edge
+            ctx.fillRect(0, 220, 512, 36);
+
+            const canopyTex = new THREE.CanvasTexture(canvas);
+            const canopyMat = new THREE.MeshStandardMaterial({
+                map: canopyTex,
+                roughness: 0.35,
+                metalness: 0.1,
+                side: THREE.DoubleSide
+            });
+            const canopyMesh = new THREE.Mesh(canopyGeo, canopyMat);
+            canopyMesh.scale.set(1.5, 0.65, 0.85);
+            canopyGroup.add(canopyMesh);
+
+            // Glowing Canopy Rim Trim
+            const rimGeo = new THREE.TorusGeometry(30, 0.5, 8, 32);
+            const rimMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+            const rimMesh = new THREE.Mesh(rimGeo, rimMat);
+            rimMesh.rotation.x = Math.PI / 2;
+            rimMesh.scale.set(1.5, 0.85, 1);
+            canopyGroup.add(rimMesh);
+
+            assembly.add(canopyGroup);
+
+            // Attachment points on the Skydiver's harness shoulder risers
+            const riserAttachLeft = new THREE.Vector3(-4, -40, 0);
+            const riserAttachRight = new THREE.Vector3(4, -40, 0);
+
+            // 2. HIGH-DENSITY SUSPENSION LINES
+            const lineMat = new THREE.LineBasicMaterial({ color: 0xf8fafc, opacity: 0.85, transparent: true });
+            
+            // 16 Suspension Lines connecting canopy directly to the skydiver's harness
+            const numLines = 16;
+            for (let i = 0; i < numLines; i++) {
+                const angle = (i / numLines) * Math.PI * 2;
+                const skirtX = Math.cos(angle) * 30 * 1.5;
+                const skirtZ = Math.sin(angle) * 30 * 0.85;
+                const targetRiser = skirtX < 0 ? riserAttachLeft : riserAttachRight;
+                
+                const lineGeo = new THREE.BufferGeometry().setFromPoints([
+                    new THREE.Vector3(skirtX, 0, skirtZ),
+                    targetRiser
+                ]);
+                const line = new THREE.Line(lineGeo, lineMat);
+                assembly.add(line);
+            }
+
+            // 3. ANATOMICAL 3D HUMAN SKYDIVER FIGURE ONLY
+            const skydiverGroup = new THREE.Group();
+            skydiverGroup.position.set(0, -40, 0);
+
+            // Materials
+            const suitMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.7, metalness: 0.2 });
+            const harnessMat = new THREE.MeshStandardMaterial({ color: 0xe11d48, roughness: 0.4 });
+            const gearMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.8 });
+            const visorMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.1, metalness: 0.9 });
+            const gloveMat = new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.5 });
+
+            // A. TORSO & CHEST HARNESS
+            const torsoGeo = new THREE.CylinderGeometry(4, 3, 11, 16);
+            const torso = new THREE.Mesh(torsoGeo, suitMat);
+            torso.position.y = -5.5;
+            skydiverGroup.add(torso);
+
+            // Tactical Cross Harness Straps
+            const harnessStrapsGeo = new THREE.BoxGeometry(8.2, 10, 6.2);
+            const harnessStraps = new THREE.Mesh(harnessStrapsGeo, harnessMat);
+            harnessStraps.position.set(0, -5.5, 0);
+            skydiverGroup.add(harnessStraps);
+
+            // Reserve Chute Container on Back
+            const backpackGeo = new THREE.BoxGeometry(7, 9, 3.5);
+            const backpack = new THREE.Mesh(backpackGeo, gearMat);
+            backpack.position.set(0, -5.5, -3.2);
+            skydiverGroup.add(backpack);
+
+            // B. HEAD, HELMET & VISOR
+            const headGeo = new THREE.SphereGeometry(2.8, 20, 20);
+            const head = new THREE.Mesh(headGeo, gearMat);
+            head.position.y = 1.8;
+            skydiverGroup.add(head);
+
+            // Visor
+            const visorGeo = new THREE.SphereGeometry(2.3, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2.1);
+            const visor = new THREE.Mesh(visorGeo, visorMat);
+            visor.rotation.x = Math.PI / 2;
+            visor.position.set(0, 1.8, 0.9);
+            skydiverGroup.add(visor);
+
+            // C. ARTICULATED ARMS REACHING UP TO TOGGLES
+            const upperArmLeftGeo = new THREE.CylinderGeometry(1.2, 1, 6, 12);
+            const upperArmLeft = new THREE.Mesh(upperArmLeftGeo, suitMat);
+            upperArmLeft.position.set(-4.5, 0, 0.5);
+            upperArmLeft.rotation.z = Math.PI / 3.5;
+            upperArmLeft.rotation.x = -Math.PI / 6;
+            skydiverGroup.add(upperArmLeft);
+
+            const foreArmLeftGeo = new THREE.CylinderGeometry(1, 0.9, 6, 12);
+            const foreArmLeft = new THREE.Mesh(foreArmLeftGeo, suitMat);
+            foreArmLeft.position.set(-6.2, 4.5, 1);
+            foreArmLeft.rotation.z = Math.PI / 8;
+            skydiverGroup.add(foreArmLeft);
+
+            const gloveLeftGeo = new THREE.SphereGeometry(1.2, 12, 12);
+            const gloveLeft = new THREE.Mesh(gloveLeftGeo, gloveMat);
+            gloveLeft.position.set(-6.8, 7.5, 1);
+            skydiverGroup.add(gloveLeft);
+
+            const upperArmRight = new THREE.Mesh(upperArmLeftGeo, suitMat);
+            upperArmRight.position.set(4.5, 0, 0.5);
+            upperArmRight.rotation.z = -Math.PI / 3.5;
+            upperArmRight.rotation.x = -Math.PI / 6;
+            skydiverGroup.add(upperArmRight);
+
+            const foreArmRight = new THREE.Mesh(foreArmLeftGeo, suitMat);
+            foreArmRight.position.set(6.2, 4.5, 1);
+            foreArmRight.rotation.z = -Math.PI / 8;
+            skydiverGroup.add(foreArmRight);
+
+            const gloveRight = new THREE.Mesh(gloveLeftGeo, gloveMat);
+            gloveRight.position.set(6.8, 7.5, 1);
+            skydiverGroup.add(gloveRight);
+
+            // D. ARTICULATED LEGS IN DESCENT POSTURE
+            const thighGeo = new THREE.CylinderGeometry(1.6, 1.2, 8, 12);
+            const leftThigh = new THREE.Mesh(thighGeo, suitMat);
+            leftThigh.position.set(-2.2, -13, 2);
+            leftThigh.rotation.x = Math.PI / 4;
+            leftThigh.rotation.z = -Math.PI / 16;
+            skydiverGroup.add(leftThigh);
+
+            const shinGeo = new THREE.CylinderGeometry(1.2, 1, 8, 12);
+            const leftShin = new THREE.Mesh(shinGeo, suitMat);
+            leftShin.position.set(-2.4, -18.5, 4.5);
+            leftShin.rotation.x = Math.PI / 8;
+            skydiverGroup.add(leftShin);
+
+            const bootGeo = new THREE.BoxGeometry(1.8, 2, 4);
+            const leftBoot = new THREE.Mesh(bootGeo, gearMat);
+            leftBoot.position.set(-2.4, -22.5, 6);
+            skydiverGroup.add(leftBoot);
+
+            const rightThigh = new THREE.Mesh(thighGeo, suitMat);
+            rightThigh.position.set(2.2, -13, 2);
+            rightThigh.rotation.x = Math.PI / 4;
+            rightThigh.rotation.z = Math.PI / 16;
+            skydiverGroup.add(rightThigh);
+
+            const rightShin = new THREE.Mesh(shinGeo, suitMat);
+            rightShin.position.set(2.4, -18.5, 4.5);
+            rightShin.rotation.x = Math.PI / 8;
+            skydiverGroup.add(rightShin);
+
+            const rightBoot = new THREE.Mesh(bootGeo, gearMat);
+            rightBoot.position.set(2.4, -22.5, 6);
+            skydiverGroup.add(rightBoot);
+
+            assembly.add(skydiverGroup);
+
+            return assembly;
+        }
+
+        // --- SCENE INITIALIZATION ---
+        function initSceneObjects() {
+            // Launch Pad Base Platform at Origin (0,0,0)
+            launchPadGroup = new THREE.Group();
+            
+            const padBaseGeo = new THREE.CylinderGeometry(18, 22, 2, 32);
+            const padBaseMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.6 });
+            const padBase = new THREE.Mesh(padBaseGeo, padBaseMat);
+            padBase.position.y = 1;
+            padBase.receiveShadow = true;
+            launchPadGroup.add(padBase);
+
+            const padRingGeo = new THREE.TorusGeometry(18, 0.6, 8, 32);
+            const padRingMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+            const padRing = new THREE.Mesh(padRingGeo, padRingMat);
+            padRing.rotation.x = Math.PI / 2;
+            padRing.position.y = 2.1;
+            launchPadGroup.add(padRing);
+
+            scene.add(launchPadGroup);
+
+            // Cardinal Direction Markers on Ground
+            createCompassMarker('N', new THREE.Vector3(0, 15, -450));
+            createCompassMarker('S', new THREE.Vector3(0, 15, 450));
+            createCompassMarker('E', new THREE.Vector3(450, 15, 0));
+            createCompassMarker('W', new THREE.Vector3(-450, 15, 0));
+
+            // Radial Ground Rings (100m, 200m, 300m)
+            const radii = [100, 200, 300];
+            radii.forEach(r => {
+                const ringGeo = new THREE.BufferGeometry();
+                const points = [];
+                for (let i = 0; i <= 64; i++) {
+                    const theta = (i / 64) * Math.PI * 2;
+                    points.push(new THREE.Vector3(r * Math.sin(theta), 0.5, r * Math.cos(theta)));
+                }
+                ringGeo.setFromPoints(points);
+                const ringMat = new THREE.LineDashedMaterial({ color: 0x475569, dashSize: 10, gapSize: 8 });
+                const ring = new THREE.LineLoop(ringGeo, ringMat);
+                ring.computeLineDistances();
+                scene.add(ring);
+            });
+
+            // 400m LAUNCH PAD SAFE RECOVERY RADIUS RING (Vivid Green)
+            const safeGeo = new THREE.BufferGeometry();
+            const safePoints = [];
+            for (let i = 0; i <= 64; i++) {
+                const theta = (i / 64) * Math.PI * 2;
+                safePoints.push(new THREE.Vector3(400 * Math.sin(theta), 1, 400 * Math.cos(theta)));
+            }
+            safeGeo.setFromPoints(safePoints);
+            const safeMat = new THREE.LineBasicMaterial({ color: 0x10b981, linewidth: 3 });
+            safeBoundaryRing = new THREE.LineLoop(safeGeo, safeMat);
+            scene.add(safeBoundaryRing);
+
+            // 500m DANGER LIMIT RING (Vivid Red)
+            const dangerGeo = new THREE.BufferGeometry();
+            const dangerPoints = [];
+            for (let i = 0; i <= 64; i++) {
+                const theta = (i / 64) * Math.PI * 2;
+                dangerPoints.push(new THREE.Vector3(500 * Math.sin(theta), 1, 500 * Math.cos(theta)));
+            }
+            dangerGeo.setFromPoints(dangerPoints);
+            const dangerMat = new THREE.LineDashedMaterial({ color: 0xf43f5e, dashSize: 15, gapSize: 10 });
+            dangerBoundaryRing = new THREE.LineLoop(dangerGeo, dangerMat);
+            dangerBoundaryRing.computeLineDistances();
+            scene.add(dangerBoundaryRing);
+
+            // Dynamic Trajectory Line (Glowing Orange Vector Path)
+            const trajGeo = new THREE.BufferGeometry();
+            const trajMat = new THREE.LineBasicMaterial({ color: 0xf97316, linewidth: 3 });
+            trajectoryMesh = new THREE.Line(trajGeo, trajMat);
+            scene.add(trajectoryMesh);
+
+            // Vertical Altitude Drop Guide Line
+            const dropGeo = new THREE.BufferGeometry();
+            const dropMat = new THREE.LineDashedMaterial({ color: 0x64748b, dashSize: 10, gapSize: 6 });
+            dropLineMesh = new THREE.Line(dropGeo, dropMat);
+            scene.add(dropLineMesh);
+
+            // Touchdown Target Marker (Red Cylinder Target Area)
+            const targetGeo = new THREE.CylinderGeometry(12, 12, 1.5, 32);
+            const targetMat = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.3 });
+            targetMarker = new THREE.Mesh(targetGeo, targetMat);
+            targetMarker.position.y = 0.8;
+            scene.add(targetMarker);
+
+            // Instantiate Detailed 3D Human Skydiver Assembly
+            parachutistAssembly = createDetailedParachutistModel();
+            scene.add(parachutistAssembly);
+        }
+
+        initSceneObjects();
+
+        function getCompassText(deg) {
+            const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+            return dirs[Math.round(deg / 45) % 8];
+        }
+
+        // --- CALCULATION & PHYSICS ENGINE ---
+        function updatePhysics() {
+            const alt = parseFloat(inputs.altitude.value);
+            const gnd = parseFloat(inputs.elevation.value);
+            const descent = parseFloat(inputs.descent.value);
+            const wind = parseFloat(inputs.windspeed.value);
+            const bearing = parseFloat(inputs.winddir.value);
+
+            // Update UI Slider Labels
+            readouts.altitude.innerText = `${alt}m`;
+            readouts.elevation.innerText = `${gnd}m`;
+            readouts.descent.innerText = `${descent.toFixed(1)} m/s`;
+            readouts.windspeed.innerText = `${wind.toFixed(1)} m/s`;
+            readouts.winddir.innerText = `${bearing}° ${getCompassText(bearing)}`;
+
+            // Physics Equations (Mission 05 Specification)
+            const effectiveAlt = Math.max(alt - gnd, 1.0);
+            const durationSec = effectiveAlt / descent;
+            
+            // Meteorological Bearing Conversion to Vector
+            const driftRad = ((bearing + 180) % 360) * (Math.PI / 180);
+            const totalDriftM = wind * durationSec;
+
+            // Target Offset Coordinates from Origin (0,0)
+            const targetX = totalDriftM * Math.sin(driftRad);
+            const targetZ = -totalDriftM * Math.cos(driftRad);
+
+            // Mandatory Compliance Verification against 400m Launch Pad Radius
+            const isCompliant = totalDriftM <= 400.0;
+
+            // Update KPI Dashboard
+            const mins = Math.floor(durationSec / 60);
+            const secs = Math.floor(durationSec % 60);
+            readouts.duration.innerText = `${String(mins).padStart(2, '0')}m ${String(secs).padStart(2, '0')}s`;
+            readouts.drift.innerText = `${Math.round(totalDriftM)} m`;
+            readouts.distance.innerText = `${Math.round(totalDriftM)} m`;
+            readouts.bearing.innerText = `${bearing}° ${getCompassText(bearing)}`;
+
+            if (isCompliant) {
+                readouts.badge.className = "px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-bold tracking-wide uppercase border bg-emerald-950/80 text-emerald-400 border-emerald-500/50 flex items-center gap-2 self-start sm:self-auto";
+                readouts.badgeText.innerText = "PASSED (Within 400m Launch Pad Radius)";
+                safeBoundaryRing.material.color.setHex(0x10b981);
+            } else {
+                readouts.badge.className = "px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-bold tracking-wide uppercase border bg-rose-950/80 text-rose-400 border-rose-500/50 flex items-center gap-2 self-start sm:self-auto";
+                readouts.badgeText.innerText = "FAILED (Exceeds 400m Launch Pad Radius)";
+                safeBoundaryRing.material.color.setHex(0xf43f5e);
+            }
+
+            // Update 3D Geometry Positions
+            grid.position.y = gnd;
+            targetMarker.position.set(targetX, gnd + 0.8, targetZ);
+
+            // Rebuild Trajectory Line Points
+            const trajPoints = [];
+            for (let i = 0; i <= 40; i++) {
+                const t = i / 40;
+                trajPoints.push(new THREE.Vector3(t * targetX, alt - (t * (alt - gnd)), t * targetZ));
+            }
+            trajectoryMesh.geometry.setFromPoints(trajPoints);
+
+            // Rebuild Vertical Altitude Drop Guide Line
+            dropLineMesh.geometry.setFromPoints([
+                new THREE.Vector3(targetX, alt, targetZ),
+                new THREE.Vector3(targetX, gnd, targetZ)
+            ]);
+            dropLineMesh.computeLineDistances();
+
+            // Animate Parachutist Assembly Gliding & Swaying along Trajectory Arc
+            const time = Date.now() * 0.001;
+            const animProgress = (time % 5) / 5;
+            
+            const currentPosX = animProgress * targetX;
+            const currentPosY = alt - (animProgress * (alt - gnd));
+            const currentPosZ = animProgress * targetZ;
+
+            parachutistAssembly.position.set(currentPosX, currentPosY, currentPosZ);
+
+            // Realistic aerodynamic swaying / pitching physics
+            const swayRoll = Math.sin(time * 3) * 0.08;
+            const swayPitch = Math.cos(time * 2) * 0.05;
+            parachutistAssembly.rotation.z = swayRoll;
+            parachutistAssembly.rotation.x = swayPitch;
+            parachutistAssembly.rotation.y = driftRad;
+        }
+
+        // Attach Event Listeners
+        Object.values(inputs).forEach(input => {
+            input.addEventListener('input', updatePhysics);
+        });
+
+        // Window Resize Responsiveness
+        window.addEventListener('resize', () => {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        });
+
+        // Main Animation Loop
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            updatePhysics();
+            renderer.render(scene, camera);
+        }
+
+        animate();
+        updatePhysics();
+    </script>
+</body>
+</html>
